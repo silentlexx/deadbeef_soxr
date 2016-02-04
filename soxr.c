@@ -114,7 +114,7 @@ ddb_soxr_open (void) {
     ddb_soxr_opt_t *opt = malloc (sizeof (ddb_soxr_opt_t));
     DDB_INIT_DSP_CONTEXT (opt,ddb_soxr_opt_t,&plugin);
 
-    opt->samplerate = 4800;
+    opt->samplerate = 48000;
     opt->samplerate2 = 44100;
     opt->quality = 4;
     opt->phase = 0;
