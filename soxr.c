@@ -37,6 +37,7 @@ enum {
     PARAM_PHASE = 3,
     PARAM_ALLOW_ALIASING = 4,
     PARAM_SAMPLERATE2 = 5,
+    PARAM_AUTOSAMPLERATE = 6,
     PARAM_COUNT
 };
 
@@ -60,6 +61,7 @@ typedef struct {
     int samplerate2;
     int steepfilter;   
     int allow_aliasing;
+    int autosamplerate;
     unsigned need_reset : 1;
 
 } ddb_soxr_opt_t;
@@ -120,6 +122,7 @@ ddb_soxr_open (void) {
     opt->phase = 0;
     opt->steepfilter = 0;
     opt->allow_aliasing = 0;
+    opt->autosamplerate = 0;
     opt->channels = -1;
     return (ddb_dsp_context_t *)opt;
 }
@@ -147,6 +150,10 @@ ddb_soxr_can_bypass (ddb_dsp_context_t *_opt, ddb_waveformat_t *fmt) {
     ddb_soxr_opt_t *opt = (ddb_soxr_opt_t*)_opt;
 
     float samplerate = opt->current_rate;
+    if (opt->autosamplerate) {
+        DB_output_t *output = deadbeef->get_output ();
+        samplerate = output->fmt.samplerate;
+    }
 
     if (fmt->samplerate == samplerate) {
         return 1;
@@ -159,22 +166,27 @@ int
 ddb_soxr_process (ddb_dsp_context_t *_opt, float *samples, int nframes, int maxframes, ddb_waveformat_t *fmt, float *r) {
     ddb_soxr_opt_t *opt = (ddb_soxr_opt_t*)_opt;
 
-    if(fmt->samplerate == 22050 || fmt->samplerate == 44100 || fmt->samplerate == 88200 || fmt->samplerate == 176400 ){
-        opt->current_rate = opt->samplerate2;
-    }  else {
-        opt->current_rate = opt->samplerate;
+    if (opt->autosamplerate) {
+        DB_output_t *output = deadbeef->get_output ();
+        if (output->fmt.samplerate <= 0) {
+            return -1;
+        }
+        opt->current_rate = output->fmt.samplerate;
+    } else {
+        if(fmt->samplerate == 22050 || fmt->samplerate == 44100 || fmt->samplerate == 88200 || fmt->samplerate == 176400 ){
+           opt->current_rate = opt->samplerate2;
+        }  else {
+           opt->current_rate = opt->samplerate;
+        }
     }
 
     int new_rate = opt->current_rate;
 
-    float ratio = (float)new_rate / (float) fmt->samplerate;
-
-    if (fmt->samplerate == new_rate || opt->quality==6) {
+   if (fmt->samplerate == new_rate || opt->quality==6) {
         return nframes;
     }
 
-
-
+ float ratio = (float)new_rate / (float) fmt->samplerate;
 
  if ( opt->channels != fmt->channels || opt->need_reset || !soxr ) {
 
@@ -271,7 +283,7 @@ ddb_soxr_set_param (ddb_dsp_context_t *ctx, int p, const char *val) {
         if (((ddb_soxr_opt_t*)ctx)->samplerate > MAX_RATE) {
             ((ddb_soxr_opt_t*)ctx)->samplerate = MAX_RATE;
         }
-        ((ddb_soxr_opt_t*)ctx)->need_reset = 1;
+
         break;
     case PARAM_SAMPLERATE2:
         ((ddb_soxr_opt_t*)ctx)->samplerate2 = atof (val);
@@ -281,7 +293,7 @@ ddb_soxr_set_param (ddb_dsp_context_t *ctx, int p, const char *val) {
         if (((ddb_soxr_opt_t*)ctx)->samplerate2 > MAX_RATE) {
             ((ddb_soxr_opt_t*)ctx)->samplerate2 = MAX_RATE;
         }
-        ((ddb_soxr_opt_t*)ctx)->need_reset = 1;
+
         break;
     case PARAM_QUALITY:
         ((ddb_soxr_opt_t*)ctx)->quality = atoi (val);
@@ -298,6 +310,9 @@ ddb_soxr_set_param (ddb_dsp_context_t *ctx, int p, const char *val) {
     case PARAM_ALLOW_ALIASING:
         ((ddb_soxr_opt_t*)ctx)->allow_aliasing = atoi (val);   
         ((ddb_soxr_opt_t*)ctx)->need_reset = 1;
+        break;
+    case PARAM_AUTOSAMPLERATE:
+        ((ddb_soxr_opt_t*)ctx)->autosamplerate = atoi (val);
         break;
     default:
         fprintf (stderr, "ddb_soxr_set_param: invalid param index (%d)\n", p);
@@ -325,7 +340,9 @@ ddb_soxr_get_param (ddb_dsp_context_t *ctx, int p, char *val, int sz) {
     case PARAM_ALLOW_ALIASING:
         snprintf (val, sz, "%d", ((ddb_soxr_opt_t*)ctx)->allow_aliasing);
         break;
-
+    case PARAM_AUTOSAMPLERATE:
+        snprintf (val, sz, "%d", ((ddb_soxr_opt_t*)ctx)->autosamplerate);
+        break;
     default:
         fprintf (stderr, "ddb_soxr_get_param: invalid param index (%d)\n", p);
     }
@@ -335,6 +352,7 @@ ddb_soxr_get_param (ddb_dsp_context_t *ctx, int p, char *val, int sz) {
 
 
 static const char settings_dlg[] =
+    "property \"Automatic Samplerate (overrides Target Samplerate)\" checkbox 6 0;\n"
     "property \"Target Samplerate for 48000, 96000, 192000\" spinbtn[8000,192000,1] 0 48000;\n"
     "property \"Target Samplerate for 44100, 88200, 176400\" spinbtn[8000,192000,1] 5 44100;\n"
     "property \"Quality / Algorithm\" select[7] 1 4 QQ LQ MQ HQ VHQ 32BIT DISABLE;\n"
