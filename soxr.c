@@ -1,6 +1,7 @@
 /*
     DeaDBeeF - The Ultimate Music Player
     Copyright (C) 2009-2013 Alexey Yakovenko <waker@users.sourceforge.net>
+    Copyright (C) 2016 Alexey Makhno <silentlexx@gmail.com>
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -113,8 +114,8 @@ ddb_soxr_open (void) {
     ddb_soxr_opt_t *opt = malloc (sizeof (ddb_soxr_opt_t));
     DDB_INIT_DSP_CONTEXT (opt,ddb_soxr_opt_t,&plugin);
 
-    opt->samplerate = 192000;
-    opt->samplerate2 = 176400;
+    opt->samplerate = 4800;
+    opt->samplerate2 = 44100;
     opt->quality = 4;
     opt->phase = 0;
     opt->steepfilter = 0;
@@ -158,7 +159,7 @@ int
 ddb_soxr_process (ddb_dsp_context_t *_opt, float *samples, int nframes, int maxframes, ddb_waveformat_t *fmt, float *r) {
     ddb_soxr_opt_t *opt = (ddb_soxr_opt_t*)_opt;
 
-    if(fmt->samplerate == 44100 || fmt->samplerate == 88200 || fmt->samplerate == 176400 ){
+    if(fmt->samplerate == 22050 || fmt->samplerate == 44100 || fmt->samplerate == 88200 || fmt->samplerate == 176400 ){
         opt->current_rate = opt->samplerate2;
     }  else {
         opt->current_rate = opt->samplerate;
@@ -334,8 +335,8 @@ ddb_soxr_get_param (ddb_dsp_context_t *ctx, int p, char *val, int sz) {
 
 
 static const char settings_dlg[] =
-    "property \"Target Samplerate for 48000, 96000, 192000\" spinbtn[8000,192000,1] 0 192000;\n"
-    "property \"Target Samplerate for 44100, 88200, 176400\" spinbtn[8000,192000,1] 5 176400;\n"
+    "property \"Target Samplerate for 48000, 96000, 192000\" spinbtn[8000,192000,1] 0 48000;\n"
+    "property \"Target Samplerate for 44100, 88200, 176400\" spinbtn[8000,192000,1] 5 44100;\n"
     "property \"Quality / Algorithm\" select[7] 1 4 QQ LQ MQ HQ VHQ 32BIT DISABLE;\n"
     "property \"Phase\" select[3] 3 0 LINEAR INTERMEDIATE MINIMUM;\n"
     "property \"Steep Filter\" checkbox 2 0;\n"
