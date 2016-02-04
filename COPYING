@@ -1,8 +1,8 @@
-resampling plugin for DeaDBeeF Player
-Copyright (C) 2009-2014 Alexey Yakovenko <waker@users.sourceforge.net>
+sox resampling plugin for DeaDBeeF Player
+Copyright (C) 2016 Alexey Makhno <silentlexx@gmail.com>
 
-libsamplerate
-Copyright (C) 2002-2008 Erik de Castro Lopo <erikd@mega-nerd.com>
+soxr library
+Rob Sykes <robs@users.sourceforge.net>
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
