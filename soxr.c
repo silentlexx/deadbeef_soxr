@@ -186,7 +186,7 @@ ddb_soxr_process (ddb_dsp_context_t *_opt, float *samples, int nframes, int maxf
         return nframes;
     }
 
- float ratio = (float)new_rate / (float) fmt->samplerate;
+ double ratio = (double) new_rate / (double) fmt->samplerate;
 
  if ( opt->channels != fmt->channels || opt->need_reset || !soxr ) {
 
