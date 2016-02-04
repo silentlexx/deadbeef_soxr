@@ -173,7 +173,7 @@ ddb_soxr_process (ddb_dsp_context_t *_opt, float *samples, int nframes, int maxf
         }
         opt->current_rate = output->fmt.samplerate;
     } else {
-        if(fmt->samplerate == 22050 || fmt->samplerate == 44100 || fmt->samplerate == 88200 || fmt->samplerate == 176400 ){
+        if(fmt->samplerate == 11025 || fmt->samplerate == 22050 || fmt->samplerate == 44100 || fmt->samplerate == 88200 || fmt->samplerate == 176400 ){
            opt->current_rate = opt->samplerate2;
         }  else {
            opt->current_rate = opt->samplerate;
