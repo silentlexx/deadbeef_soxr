@@ -266,6 +266,8 @@ ddb_soxr_get_param_name (int p) {
         return "Phase";
     case PARAM_ALLOW_ALIASING:
         return "Allow Aliasing";
+    case PARAM_AUTOSAMPLERATE:
+        return "Auto samplerate";
     default:
         fprintf (stderr, "ddb_soxr_get_param_name: invalid param index (%d)\n", p);
     }
