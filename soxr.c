@@ -110,6 +110,14 @@ soxr_get_p (int val){
     }
 }
 
+int 
+soxr_get_f (int val){
+    if(val){
+        return SOXR_FLOAT32_I;
+    } else {
+        return SOXR_INT16_I;
+    }
+ }
 
 ddb_dsp_context_t*
 ddb_soxr_open (void) {
@@ -132,6 +140,7 @@ ddb_soxr_close (ddb_dsp_context_t *_opt) {
     ddb_soxr_opt_t *opt = (ddb_soxr_opt_t*)_opt;
     soxr_delete (soxr);
     soxr = 0;
+    soxr_clear(soxr);
     free (soxr);
     free (opt);
 }
@@ -171,13 +180,17 @@ ddb_soxr_process (ddb_dsp_context_t *_opt, float *samples, int nframes, int maxf
         if (output->fmt.samplerate <= 0) {
             return -1;
         }
+       // trace ("soxr: autosamplerate=%d\n", output->fmt.samplerate);
         opt->current_rate = output->fmt.samplerate;
     } else {
-        if(fmt->samplerate == 11025 || fmt->samplerate == 22050 || fmt->samplerate == 44100 || fmt->samplerate == 88200 || fmt->samplerate == 176400 ){
-           opt->current_rate = opt->samplerate2;
-        }  else {
-           opt->current_rate = opt->samplerate;
-        }
+        if(fmt->samplerate == 11025  || fmt->samplerate == 22050 || 
+           fmt->samplerate == 44100  || fmt->samplerate == 88200 || 
+           fmt->samplerate == 176400 || fmt->samplerate == 352800 
+          ){
+               opt->current_rate = opt->samplerate2;
+           }  else {
+              opt->current_rate = opt->samplerate;
+          }
     }
 
     int new_rate = opt->current_rate;
@@ -194,9 +207,13 @@ ddb_soxr_process (ddb_dsp_context_t *_opt, float *samples, int nframes, int maxf
     soxr_delete (soxr);
     soxr = 0;   
     unsigned long quality_recipe;    
-    soxr_runtime_spec_t runtime_spec;
+ 
+    soxr_io_spec_t io_spec;
+    int io_format = soxr_get_f(fmt->is_float);
+    io_spec = soxr_io_spec(io_format, io_format);
     /* Resample in one thread. Multithreading makes
      * performance worse with small chunks of audio. */
+    soxr_runtime_spec_t runtime_spec;
     runtime_spec = soxr_runtime_spec(1);
 
      int qa = soxr_get_q(opt->quality);
@@ -213,11 +230,11 @@ ddb_soxr_process (ddb_dsp_context_t *_opt, float *samples, int nframes, int maxf
     } else {
         quality_recipe = qa | pa ; 
     }
-  //  quality_recipe = SOXR_VHQ;
+
     soxr_quality_spec_t q = soxr_quality_spec(quality_recipe, 0);
 
-    trace ("soxr: q=%lu, ratio=%f, old_r=%d, new_r=%d\n", quality_recipe, ratio, fmt->samplerate, new_rate);
-    soxr = soxr_create(fmt->samplerate, new_rate, fmt->channels, &error, NULL, &q, &runtime_spec);
+    trace ("soxr: f=%d, q=%lu, ratio=%f, old_r=%d, new_r=%d\n", fmt->is_float, quality_recipe, ratio, fmt->samplerate, new_rate);
+    soxr = soxr_create(fmt->samplerate, new_rate, fmt->channels, &error,  &io_spec, &q, &runtime_spec);
     if(!soxr){
         trace ("soxr create error!");
         return nframes;
@@ -242,7 +259,7 @@ ddb_soxr_process (ddb_dsp_context_t *_opt, float *samples, int nframes, int maxf
     memcpy (input, outbuf, numoutframes * fmt->channels * sizeof (float));
 
     fmt->samplerate = new_rate;
-    trace ("soxr: ratio=%f, in=%d, out=%d\n", ratio, nframes, numoutframes);
+//    trace ("soxr: ratio=%f, in=%d, out=%d\n", ratio, nframes, numoutframes);
     return numoutframes;
 }
 
