@@ -1,6 +1,7 @@
 /*
     DeaDBeeF - The Ultimate Music Player
     Copyright (C) 2009-2013 Alexey Yakovenko <waker@users.sourceforge.net>
+    Copyright (C) 2016 Alexey Makhno <silentlexx@gmail.com>
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -36,6 +37,7 @@ enum {
     PARAM_PHASE = 3,
     PARAM_ALLOW_ALIASING = 4,
     PARAM_SAMPLERATE2 = 5,
+    PARAM_AUTOSAMPLERATE = 6,
     PARAM_COUNT
 };
 
@@ -59,6 +61,7 @@ typedef struct {
     int samplerate2;
     int steepfilter;   
     int allow_aliasing;
+    int autosamplerate;
     unsigned need_reset : 1;
 
 } ddb_soxr_opt_t;
@@ -107,18 +110,27 @@ soxr_get_p (int val){
     }
 }
 
+int 
+soxr_get_f (int val){
+    if(val){
+        return SOXR_FLOAT32_I;
+    } else {
+        return SOXR_INT16_I;
+    }
+ }
 
 ddb_dsp_context_t*
 ddb_soxr_open (void) {
     ddb_soxr_opt_t *opt = malloc (sizeof (ddb_soxr_opt_t));
     DDB_INIT_DSP_CONTEXT (opt,ddb_soxr_opt_t,&plugin);
 
-    opt->samplerate = 192000;
-    opt->samplerate2 = 176400;
+    opt->samplerate = 48000;
+    opt->samplerate2 = 44100;
     opt->quality = 4;
     opt->phase = 0;
     opt->steepfilter = 0;
     opt->allow_aliasing = 0;
+    opt->autosamplerate = 0;
     opt->channels = -1;
     return (ddb_dsp_context_t *)opt;
 }
@@ -128,6 +140,7 @@ ddb_soxr_close (ddb_dsp_context_t *_opt) {
     ddb_soxr_opt_t *opt = (ddb_soxr_opt_t*)_opt;
     soxr_delete (soxr);
     soxr = 0;
+    soxr_clear(soxr);
     free (soxr);
     free (opt);
 }
@@ -146,6 +159,10 @@ ddb_soxr_can_bypass (ddb_dsp_context_t *_opt, ddb_waveformat_t *fmt) {
     ddb_soxr_opt_t *opt = (ddb_soxr_opt_t*)_opt;
 
     float samplerate = opt->current_rate;
+    if (opt->autosamplerate) {
+        DB_output_t *output = deadbeef->get_output ();
+        samplerate = output->fmt.samplerate;
+    }
 
     if (fmt->samplerate == samplerate) {
         return 1;
@@ -158,22 +175,31 @@ int
 ddb_soxr_process (ddb_dsp_context_t *_opt, float *samples, int nframes, int maxframes, ddb_waveformat_t *fmt, float *r) {
     ddb_soxr_opt_t *opt = (ddb_soxr_opt_t*)_opt;
 
-    if(fmt->samplerate == 44100 || fmt->samplerate == 88200 || fmt->samplerate == 176400 ){
-        opt->current_rate = opt->samplerate2;
-    }  else {
-        opt->current_rate = opt->samplerate;
+    if (opt->autosamplerate) {
+        DB_output_t *output = deadbeef->get_output ();
+        if (output->fmt.samplerate <= 0) {
+            return -1;
+        }
+       // trace ("soxr: autosamplerate=%d\n", output->fmt.samplerate);
+        opt->current_rate = output->fmt.samplerate;
+    } else {
+        if(fmt->samplerate == 11025  || fmt->samplerate == 22050 || 
+           fmt->samplerate == 44100  || fmt->samplerate == 88200 || 
+           fmt->samplerate == 176400 || fmt->samplerate == 352800 
+          ){
+               opt->current_rate = opt->samplerate2;
+           }  else {
+              opt->current_rate = opt->samplerate;
+          }
     }
 
     int new_rate = opt->current_rate;
 
-    float ratio = (float)new_rate / (float) fmt->samplerate;
-
-    if (fmt->samplerate == new_rate || opt->quality==6) {
+   if (fmt->samplerate == new_rate || opt->quality==6) {
         return nframes;
     }
 
-
-
+ double ratio = (double) new_rate / (double) fmt->samplerate;
 
  if ( opt->channels != fmt->channels || opt->need_reset || !soxr ) {
 
@@ -181,9 +207,13 @@ ddb_soxr_process (ddb_dsp_context_t *_opt, float *samples, int nframes, int maxf
     soxr_delete (soxr);
     soxr = 0;   
     unsigned long quality_recipe;    
-    soxr_runtime_spec_t runtime_spec;
+ 
+    soxr_io_spec_t io_spec;
+    int io_format = soxr_get_f(fmt->is_float);
+    io_spec = soxr_io_spec(io_format, io_format);
     /* Resample in one thread. Multithreading makes
      * performance worse with small chunks of audio. */
+    soxr_runtime_spec_t runtime_spec;
     runtime_spec = soxr_runtime_spec(1);
 
      int qa = soxr_get_q(opt->quality);
@@ -203,8 +233,8 @@ ddb_soxr_process (ddb_dsp_context_t *_opt, float *samples, int nframes, int maxf
   //  quality_recipe = SOXR_VHQ;
     soxr_quality_spec_t q = soxr_quality_spec(quality_recipe, 0);
 
-    trace ("soxr: q=%lu, ratio=%f, old_r=%d, new_r=%d\n", quality_recipe, ratio, fmt->samplerate, new_rate);
-    soxr = soxr_create(fmt->samplerate, new_rate, fmt->channels, &error, NULL, &q, &runtime_spec);
+    trace ("soxr: f=%d, q=%lu, ratio=%f, old_r=%d, new_r=%d\n", fmt->is_float, quality_recipe, ratio, fmt->samplerate, new_rate);
+    soxr = soxr_create(fmt->samplerate, new_rate, fmt->channels, &error,  &io_spec, &q, &runtime_spec);
     if(!soxr){
         trace ("soxr create error!");
         return nframes;
@@ -229,7 +259,7 @@ ddb_soxr_process (ddb_dsp_context_t *_opt, float *samples, int nframes, int maxf
     memcpy (input, outbuf, numoutframes * fmt->channels * sizeof (float));
 
     fmt->samplerate = new_rate;
-    trace ("soxr: ratio=%f, in=%d, out=%d\n", ratio, nframes, numoutframes);
+//    trace ("soxr: ratio=%f, in=%d, out=%d\n", ratio, nframes, numoutframes);
     return numoutframes;
 }
 
@@ -253,6 +283,8 @@ ddb_soxr_get_param_name (int p) {
         return "Phase";
     case PARAM_ALLOW_ALIASING:
         return "Allow Aliasing";
+    case PARAM_AUTOSAMPLERATE:
+        return "Auto samplerate";
     default:
         fprintf (stderr, "ddb_soxr_get_param_name: invalid param index (%d)\n", p);
     }
@@ -270,7 +302,7 @@ ddb_soxr_set_param (ddb_dsp_context_t *ctx, int p, const char *val) {
         if (((ddb_soxr_opt_t*)ctx)->samplerate > MAX_RATE) {
             ((ddb_soxr_opt_t*)ctx)->samplerate = MAX_RATE;
         }
-        ((ddb_soxr_opt_t*)ctx)->need_reset = 1;
+
         break;
     case PARAM_SAMPLERATE2:
         ((ddb_soxr_opt_t*)ctx)->samplerate2 = atof (val);
@@ -280,7 +312,7 @@ ddb_soxr_set_param (ddb_dsp_context_t *ctx, int p, const char *val) {
         if (((ddb_soxr_opt_t*)ctx)->samplerate2 > MAX_RATE) {
             ((ddb_soxr_opt_t*)ctx)->samplerate2 = MAX_RATE;
         }
-        ((ddb_soxr_opt_t*)ctx)->need_reset = 1;
+
         break;
     case PARAM_QUALITY:
         ((ddb_soxr_opt_t*)ctx)->quality = atoi (val);
@@ -297,6 +329,9 @@ ddb_soxr_set_param (ddb_dsp_context_t *ctx, int p, const char *val) {
     case PARAM_ALLOW_ALIASING:
         ((ddb_soxr_opt_t*)ctx)->allow_aliasing = atoi (val);   
         ((ddb_soxr_opt_t*)ctx)->need_reset = 1;
+        break;
+    case PARAM_AUTOSAMPLERATE:
+        ((ddb_soxr_opt_t*)ctx)->autosamplerate = atoi (val);
         break;
     default:
         fprintf (stderr, "ddb_soxr_set_param: invalid param index (%d)\n", p);
@@ -324,7 +359,9 @@ ddb_soxr_get_param (ddb_dsp_context_t *ctx, int p, char *val, int sz) {
     case PARAM_ALLOW_ALIASING:
         snprintf (val, sz, "%d", ((ddb_soxr_opt_t*)ctx)->allow_aliasing);
         break;
-
+    case PARAM_AUTOSAMPLERATE:
+        snprintf (val, sz, "%d", ((ddb_soxr_opt_t*)ctx)->autosamplerate);
+        break;
     default:
         fprintf (stderr, "ddb_soxr_get_param: invalid param index (%d)\n", p);
     }
@@ -334,8 +371,9 @@ ddb_soxr_get_param (ddb_dsp_context_t *ctx, int p, char *val, int sz) {
 
 
 static const char settings_dlg[] =
-    "property \"Target Samplerate for 48000, 96000, 192000\" spinbtn[8000,192000,1] 0 192000;\n"
-    "property \"Target Samplerate for 44100, 88200, 176400\" spinbtn[8000,192000,1] 5 176400;\n"
+    "property \"Automatic Samplerate (overrides Target Samplerate)\" checkbox 6 0;\n"
+    "property \"Target Samplerate for 48000, 96000, 192000\" spinbtn[8000,192000,1] 0 48000;\n"
+    "property \"Target Samplerate for 44100, 88200, 176400\" spinbtn[8000,192000,1] 5 44100;\n"
     "property \"Quality / Algorithm\" select[7] 1 4 QQ LQ MQ HQ VHQ 32BIT DISABLE;\n"
     "property \"Phase\" select[3] 3 0 LINEAR INTERMEDIATE MINIMUM;\n"
     "property \"Steep Filter\" checkbox 2 0;\n"
