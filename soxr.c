@@ -180,7 +180,6 @@ ddb_soxr_process (ddb_dsp_context_t *_opt, float *samples, int nframes, int maxf
         if (output->fmt.samplerate <= 0) {
             return -1;
         }
-<<<<<<< HEAD
        // trace ("soxr: autosamplerate=%d\n", output->fmt.samplerate);
         opt->current_rate = output->fmt.samplerate;
     } else {
@@ -192,15 +191,6 @@ ddb_soxr_process (ddb_dsp_context_t *_opt, float *samples, int nframes, int maxf
            }  else {
               opt->current_rate = opt->samplerate;
           }
-=======
-        opt->current_rate = output->fmt.samplerate;
-    } else {
-        if(fmt->samplerate == 11025 || fmt->samplerate == 22050 || fmt->samplerate == 44100 || fmt->samplerate == 88200 || fmt->samplerate == 176400 ){
-           opt->current_rate = opt->samplerate2;
-        }  else {
-           opt->current_rate = opt->samplerate;
-        }
->>>>>>> f0732d685715782c9d045cf0f9da1055e7d2c851
     }
 
     int new_rate = opt->current_rate;
@@ -240,7 +230,7 @@ ddb_soxr_process (ddb_dsp_context_t *_opt, float *samples, int nframes, int maxf
     } else {
         quality_recipe = qa | pa ; 
     }
-  //  quality_recipe = SOXR_VHQ;
+
     soxr_quality_spec_t q = soxr_quality_spec(quality_recipe, 0);
 
     trace ("soxr: f=%d, q=%lu, ratio=%f, old_r=%d, new_r=%d\n", fmt->is_float, quality_recipe, ratio, fmt->samplerate, new_rate);
