@@ -173,6 +173,10 @@ ddb_soxr_can_bypass (ddb_dsp_context_t *_opt, ddb_waveformat_t *fmt) {
 
 int
 ddb_soxr_process (ddb_dsp_context_t *_opt, float *samples, int nframes, int maxframes, ddb_waveformat_t *fmt, float *r) {
+    if (!nframes) {
+        *r = 1;
+        return nframes;
+    }
     ddb_soxr_opt_t *opt = (ddb_soxr_opt_t*)_opt;
 
     if (opt->autosamplerate) {
