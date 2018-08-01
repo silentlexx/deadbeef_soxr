@@ -220,13 +220,13 @@ ddb_soxr_process (ddb_dsp_context_t *_opt, float *samples, int nframes, int maxf
      int pa = soxr_get_p(opt->phase);
 
     if(opt->steepfilter && opt->allow_aliasing){
-        quality_recipe = qa | pa | SOXR_STEEP_FILTER | SOXR_ALLOW_ALIASING ;
+        quality_recipe = qa | pa | SOXR_STEEP_FILTER ;
     } else 
     if(opt->steepfilter && !opt->allow_aliasing){
         quality_recipe = qa | pa | SOXR_STEEP_FILTER ;
     } else 
     if(!opt->steepfilter && opt->allow_aliasing){
-        quality_recipe = qa | pa | SOXR_ALLOW_ALIASING ;
+        quality_recipe = qa | pa ;
     } else {
         quality_recipe = qa | pa ; 
     }
